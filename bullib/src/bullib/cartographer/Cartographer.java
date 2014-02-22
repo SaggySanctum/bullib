@@ -21,18 +21,18 @@ import org.jgrapht.ext.*;
 import org.jgrapht.graph.*;
 
 @SuppressWarnings({"serial", "rawtypes","unchecked"})
-public class Cartographer<T extends Serializable> extends JFrame {
+public class Cartographer<T extends Serializable, W extends Weight> extends JFrame {
     private Color color;
     private Dimension size;
 	private JGraphModelAdapter jgAdapter;
 	private ListenableGraph graph;
 
-    public Cartographer(Network<T> network, int width, int height, int limit, int settled) throws Exception{
+    public Cartographer(Network<T, W, ?> network, int width, int height, int limit, int settled) throws Exception{
         init(network, width, height, limit, settled);
         setVisible(true);
     }
 
-	public void init(Network<T> network, int width, int height, int limit, int settled) throws Exception {
+	public void init(Network<T, W, ?> network, int width, int height, int limit, int settled) throws Exception {
 
         // setup graph
         color = Color.decode("#FAFBFF");
@@ -53,7 +53,7 @@ public class Cartographer<T extends Serializable> extends JFrame {
         setVisible(true);
     }
 
-	public void drawGraph(Network<T> network, ListenableGraph graph, int width, int height, int limit, int settled) throws Exception {
+	public void drawGraph(Network<T, W, ?> network, ListenableGraph graph, int width, int height, int limit, int settled) throws Exception {
     	
         // Add vertices
         HashMap<T, GraphCoordinate> coordinates = new HashMap<T, GraphCoordinate>();
@@ -65,12 +65,13 @@ public class Cartographer<T extends Serializable> extends JFrame {
         
         // Add edges
         for(T parent : network.getNodes()){
-        	for(Entry<T, Weight> link : network.getOutgoingLinks(parent)){
+        	for(Entry<T, W> link : network.getOutgoingLinks(parent)){
         		graph.addEdge(parent, link.getKey(), link.getValue());
         	}
         }
 
         // Simulate until an equilibrium is reached
+        // TODO: implement a force minimalization algorithm
         int movlim = coordinates.keySet().size() / 10;
         GraphCoordinate rootcoord = coordinates.get(network.root);
         rootcoord.x = width/2;

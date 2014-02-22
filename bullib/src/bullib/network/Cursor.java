@@ -1,50 +1,40 @@
 package bullib.network;
 
 import bullib.network.Network;
+
 import java.io.Serializable;
-import java.util.HashMap;
 import java.util.LinkedList;
-import java.util.Map;
 
 // Used to iterate, navigate, and manage a Network
-public abstract class Cursor<T extends Serializable> {
+public class Cursor<N extends Serializable, W extends Weight<D>, D extends Serializable> {
 	// shortest path, can also be used to find the shortest path to express an idea.
 	// find cycles
 	// remember path and backpropagate influences on weight
 
-	private Network<T> network;
+	private Network<N, Weight<D>, D> network;
 	
-	private T location;
-	private HashMap<T, Double> encounters;
-	private LinkedList<T> history;
+	private N location;
+	private LinkedList<N> history;
 
-	public Cursor(Network<T> anetwork){
+	public Cursor(Network<N, Weight<D>, D> anetwork){
 		network = anetwork;
 		reset();
 	}
 	
-	// Implement in a derived class to adjust the speed of counter advance.
-	public abstract double advance(double count);
-
 	public void reset(){
 		location = network.root;
-		encounters = new HashMap<T, Double>();
-		history = new LinkedList<T>();
+		history = new LinkedList<N>();
 	}
 
-	public T getLocation(){
+	public N getLocation(){
 		return location;
 	}
 
-	public double getCount(T word){
-		return encounters.get(word);
-	}
-
-	public LinkedList<T> getHistory(){
+	public LinkedList<N> getHistory(){
 		return history;
 	}
 
-	public void move(T next) throws Exception{
+	public void move(N next) throws Exception{
 		if(!network.contains(location, next)){
 			throw new Exception("'"+next+"' is not adjacent to location, still performing the move.");
 		}
@@ -52,39 +42,18 @@ public abstract class Cursor<T extends Serializable> {
 		record();
 	}
 
-	public void place(T destination, double weight) throws Exception{
+	public void place(N destination, Weight<D> weight) throws Exception{
 		network.addLink(location, destination, weight);
 	}
 
-	public T moveClosest(double target){
-		T minword = null;
-		double mindist = Double.MAX_VALUE;
-		double distance;
-		for(Map.Entry<T, Weight> entry : network.getOutgoingLinks(location)){
-			distance = Math.abs(target - entry.getValue().value) + encounters.get(entry.getKey());
-			if(distance <= mindist){
-				mindist = distance;
-				minword = entry.getKey();
-			}
-		}
-		location = minword;
-		record();
-		return minword;
-	}
-
-	public void placeAndMove(T destination, double weight) throws Exception{
+	public void placeAndMove(N destination, Weight<D> weight) throws Exception{
 		place(destination, weight);
 		location = destination;
 		record();
 	}
 
 	private void record(){
+		network.advanceCounter(history.getLast(), location);
 		history.addLast(location);
-		
-		double count = 1.0;
-		if(encounters.containsKey(location)){
-			count = encounters.get(location);
-		}
-		encounters.put(location, advance(count));
 	}
 }

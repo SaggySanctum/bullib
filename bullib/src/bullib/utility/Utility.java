@@ -2,19 +2,9 @@ package bullib.utility;
 
 import java.io.*;
 import java.util.*;
-import java.util.Map.Entry;
 import java.util.regex.*;
 
-import bullib.network.Weight;
-
 public class Utility{
-	
-	public static Comparator<Entry<?,Weight>> entryComparator = new Comparator<Entry<?,Weight>>(){
-		@Override
-		public int compare(Entry<?, Weight> o1, Entry<?, Weight> o2) {
-			return o1.getValue().compareTo(o2.getValue());
-		}
-	};
 	
 	public static File getFile(String filename){
 		File found = null;
@@ -90,7 +80,7 @@ public class Utility{
 		LinkedList<String> matches = new LinkedList<String>();
 		Matcher m = pattern.matcher(text);
 		while (m.find()) {
-			matches.add(m.group(0));
+			matches.add(m.group());
 		}
 		return matches;
 	}

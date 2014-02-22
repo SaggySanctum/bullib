@@ -10,85 +10,89 @@ import java.util.Set;
 import java.util.Map;
 
 // Representation of a network accessed via unique generic nodes. No error checking, exceptions fall through.
-public abstract class Network<T extends Serializable> implements Serializable{
+public abstract class Network<N extends Serializable, W extends Weight<D>, D extends Serializable> implements Serializable{
 	private static final long serialVersionUID = 1L;
-	public final T root;
+	public final N root;
 	private int maxlinks;
-	private HashMap<T, HashMap<T, Weight>> graph;
-	private HashMap<T, HashSet<T>> callback;
+	private HashMap<N, HashMap<N, W>> graph;
+	private HashMap<N, HashSet<N>> callback;
 
-	public Network(T aroot, int max){
+	public Network(N aroot, int max){
 		root = aroot;
 		maxlinks = max;
-		graph = new HashMap<T, HashMap<T, Weight>>();	
-		callback = new HashMap<T, HashSet<T>>();
+		graph = new HashMap<N, HashMap<N, W>>();	
+		callback = new HashMap<N, HashSet<N>>();
 		
-		graph.put(root, new HashMap<T, Weight>());
-		callback.put(root, new HashSet<T>());
-	}
-
-	// implement in a derived class to adjust the collision function for path weights.
-	protected abstract void collide(Weight weight, double addition);
+		graph.put(root, new HashMap<N, W>());
+		callback.put(root, new HashSet<N>());
+	} 
 	
 	// implement in a derived class to choose which connection to remove
-	protected abstract Collection<T> prune(Set<Map.Entry<T, Weight>> link);
+	protected abstract Collection<N> prune(Set<Map.Entry<N, W>> links);
 
-	public synchronized boolean contains(T location){
+	public synchronized boolean contains(N location){
 		return graph.containsKey(location);
 	}
 	
-	public synchronized boolean contains(T location, T destination){
+	public synchronized boolean contains(N location, N destination){
 		if(!contains(location)){
 			return false;
 		}
 		return graph.get(location).containsKey(destination);
 	}
 	
-	public synchronized Set<T> getNodes(){
+	public synchronized Set<N> getNodes(){
 		return graph.keySet();
 	}
 	
-	public synchronized Set<T> getIncomingLinks(T location){
-		return callback.get(location);
+	public synchronized Set<N> getIncomingLinks(N location){
+		return callback.get(location); 
 	}
 
-	public synchronized Set<Map.Entry<T, Weight>> getOutgoingLinks(T location){
+	public synchronized Set<Map.Entry<N, W>> getOutgoingLinks(N location){
 		return graph.get(location).entrySet();
 	}
 
-	public synchronized void addLink(T location, T destination, double addition) throws Exception{
+	public synchronized void addLink(N location, N destination, W weight) throws Exception{
 		// Grab the set of nodes adjacent to location. Add location and instantiate the set if it doesn't exist.
-		HashMap<T, Weight> adjacent;
+		HashMap<N, W> adjacent;
 		if(graph.containsKey(location)){
 			adjacent = graph.get(location);
 		}
 		else{
-			adjacent = new HashMap<T, Weight>();
+			adjacent = new HashMap<N, W>();
 			graph.put(location, adjacent);
 		}
 
 		// Grab and modify the weight for the path to the destination node. Add destination and instantiate the weight if it doesn't exist.
 		if(adjacent.containsKey(destination)){
-			Weight weight = adjacent.get(destination);
-			collide(weight, addition);
-			checkWeight(weight, addition, location);
+			adjacent.get(destination).collide(weight);
 		}
 		else{
 			checkPrune(adjacent, location);
-			adjacent.put(destination, new Weight(addition));
+			adjacent.put(destination, weight);
 		}
 		
 		// Add the destination and its map of links if it doesn't exist.
 		if(!graph.containsKey(destination)){
-			graph.put(destination, new HashMap<T, Weight>());
+			graph.put(destination, new HashMap<N, W>());
 		}
 		
 		registerCallback(location, destination);
 	}
 	
-	private void checkPrune(HashMap<T, Weight> adjacent, T location){
+	public synchronized void advanceCounter(N location, N destination){
+		graph.get(location).get(destination).advanceCounter();
+	}
+	
+	public synchronized void resetCounter(N location, N destination){
+		graph.get(location).get(destination).resetCounter();
+	}
+	
+	
+	private void checkPrune(HashMap<N, W> adjacent, N location){
 		if(adjacent.size() + 1 > maxlinks){
-			for(T r : prune(getOutgoingLinks(location))){
+			for(N r : prune(getOutgoingLinks(location))){
 				adjacent.remove(r);
 				callback.get(r).remove(location);
 				// if the node is alienated, remove it
@@ -99,51 +103,20 @@ public abstract class Network<T extends Serializable> implements Serializable{
 			}
 		}
 	}
-		
-	private void checkWeight(Weight weight, double addition, T location) throws Exception{
-		// salvage weight, and scale all other weights
-		if(weight.value == Double.POSITIVE_INFINITY){
-			weight.value = Double.MAX_VALUE;
-			for(Weight w : graph.get(location).values()){
-				w.value /= 2;
-				if(w.value == Double.NEGATIVE_INFINITY){
-					w.value = 0.0;
-				}
-			}
-			// attempt the collision again
-			collide(weight, addition);
-		}
-		else if(weight.value == Double.NEGATIVE_INFINITY){
-			weight.value = Double.MIN_VALUE;
-			for(Weight w : graph.get(location).values()){
-				w.value /= 2;
-				if(w.value == Double.NEGATIVE_INFINITY){
-					w.value = 0.0;
-				}
-			}
-			// attempt the collision again
-			collide(weight, addition);
-		}
-		
-		// ensure the weight is still valid
-		if(weight.value == Double.POSITIVE_INFINITY || weight.value == Double.NEGATIVE_INFINITY || weight.value == Double.NaN){
-			throw new Exception("Weight "+weight+" at location "+location+" failed it's validity check. The previous collision made it invalid");
-		}
-	}
 	
-	private void registerCallback(T location, T destination){
-		HashSet<T> back;
+	private void registerCallback(N location, N destination){
+		HashSet<N> back;
 		if(callback.containsKey(destination)){
 			back = callback.get(destination);
 			back.add(location);
 		}
 		else{
-			back = new HashSet<T>();
+			back = new HashSet<N>();
 			back.add(location);
 			callback.put(destination, back);
 		}
 		if(!callback.containsKey(location)){
-			callback.put(location, new HashSet<T>());
+			callback.put(location, new HashSet<N>());
 		}
 	}
 }
